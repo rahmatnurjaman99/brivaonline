@@ -6,7 +6,8 @@ namespace RahmatNurjaman99\BrivaOnline\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use RahmatNurjaman99\BrivaOnline\Clients\WsdlClient;
+use RahmatNurjaman99\BrivaOnline\Contracts\InquiryResolver;
+use RahmatNurjaman99\BrivaOnline\Contracts\PaymentResolver;
 use RahmatNurjaman99\BrivaOnline\Http\Requests\InquiryRequest;
 use RahmatNurjaman99\BrivaOnline\Http\Requests\PaymentRequest;
 use RahmatNurjaman99\BrivaOnline\Repositories\InquiryRepository;
@@ -57,7 +58,7 @@ class BrivaController
         ]);
     }
 
-    public function inquiry(Request $request, TokenRepository $tokens, WsdlClient $wsdl, InquiryRepository $inquiries): JsonResponse
+    public function inquiry(Request $request, TokenRepository $tokens, InquiryResolver $resolver, InquiryRepository $inquiries): JsonResponse
     {
         $tokenData = $this->requireToken($request, $tokens);
         if ($tokenData instanceof JsonResponse) {
@@ -81,74 +82,48 @@ class BrivaController
         }
 
         try {
-            $wsdlResponse = $wsdl->inquiry((string) ($body['customerNo'] ?? ''));
+            $payload = $resolver->resolve($body);
         } catch (\Throwable $ex) {
             return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable');
         }
-
-        $inquiryResult = $wsdlResponse['inquiryResult'] ?? null;
-        if (!is_array($inquiryResult)) {
+        if (!is_array($payload)) {
             return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable');
         }
 
-        $status = $inquiryResult['status'] ?? [];
-        if (is_array($status)) {
-            $isError = ($status['isError'] ?? false) === true;
-            $errorCode = $status['errorCode'] ?? null;
-            if ($isError || ($errorCode && $errorCode !== '00')) {
-                $description = $status['statusDescription'] ?? 'Invalid customerNo';
-                return $this->inquiryErrorResponse(400, '4002401', $description);
-            }
-        }
-
-        $billDetails = $inquiryResult['billDetails']['BillDetail'] ?? [];
-        $firstItem = is_array($billDetails) && $billDetails ? $billDetails[0] : [];
-        $billAmount = is_array($firstItem) ? ($firstItem['billAmount'] ?? null) : null;
-
-        $totalValue = Formatter::formatAmountValue($billAmount);
-        $totalCurrency = Formatter::mapCurrency($inquiryResult['currency'] ?? null);
-        $billShortName = is_array($firstItem) ? ($firstItem['billShortName'] ?? '') : '';
-        $billCode = is_array($firstItem) ? ($firstItem['billCode'] ?? '') : '';
-        $billInfo1 = (string) ($inquiryResult['billInfo1'] ?? '');
-        $billInfo4 = (string) ($inquiryResult['billInfo4'] ?? '');
-
+        $inquiryRequestId = (string) ($body['inquiryRequestId'] ?? '');
+        $virtualAccountData = $payload['virtualAccountData'] ?? [];
+        $billShortName = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billShortName'] ?? '') : '';
+        $billCode = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billCode'] ?? '') : '';
+        $billInfo1 = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billInfo1'] ?? '') : '';
+        $billInfo4 = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billInfo4'] ?? '') : '';
         $slug = Formatter::slugCompact($billShortName)
             . Formatter::slugCompact($billCode)
             . Formatter::slugCompact($billInfo1)
             . Formatter::slugCompact($billInfo4);
 
-        $inquiryRequestId = (string) ($body['inquiryRequestId'] ?? '');
-        if ($slug !== '' && $inquiryRequestId !== '') {
+        $totalAmount = is_array($virtualAccountData) ? ($virtualAccountData['totalAmount'] ?? []) : [];
+        $totalAmountValue = is_array($totalAmount) ? ($totalAmount['value'] ?? null) : null;
+        $totalAmountCurrency = is_array($totalAmount) ? ($totalAmount['currency'] ?? null) : null;
+
+        if ($slug !== '' && $inquiryRequestId !== '' && is_array($virtualAccountData)) {
             $inquiries->upsert(
                 $inquiryRequestId,
                 $inquiryRequestId,
-                (string) ($body['customerNo'] ?? ''),
+                (string) ($virtualAccountData['customerNo'] ?? $body['customerNo'] ?? ''),
                 $slug,
                 $billShortName,
                 $billCode,
                 $billInfo1,
-                $billInfo4
+                $billInfo4,
+                $totalAmountValue !== null ? (string) $totalAmountValue : null,
+                $totalAmountCurrency !== null ? (string) $totalAmountCurrency : null
             );
         }
 
-        return response()->json([
-            'responseCode' => '2002400',
-            'responseMessage' => 'Successful',
-            'virtualAccountData' => [
-                'partnerServiceId' => (string) ($body['partnerServiceId'] ?? ''),
-                'customerNo' => (string) ($body['customerNo'] ?? ''),
-                'virtualAccountNo' => (string) ($body['virtualAccountNo'] ?? ''),
-                'virtualAccountName' => (string) ($inquiryResult['billInfo2'] ?? $body['virtualAccountName'] ?? 'John Doe'),
-                'inquiryRequestId' => $inquiryRequestId,
-                'totalAmount' => ['value' => $totalValue, 'currency' => $totalCurrency],
-                'inquiryStatus' => '00',
-                'inquiryReason' => ['english' => 'Success', 'indonesia' => 'Sukses'],
-            ],
-            'additionalInfo' => $body['additionalInfo'] ?? [],
-        ]);
+        return response()->json($payload);
     }
 
-    public function payment(Request $request, TokenRepository $tokens, WsdlClient $wsdl): JsonResponse
+    public function payment(Request $request, TokenRepository $tokens, InquiryRepository $inquiries, PaymentResolver $resolver): JsonResponse
     {
         $tokenData = $this->requireToken($request, $tokens);
         if ($tokenData instanceof JsonResponse) {
@@ -156,9 +131,23 @@ class BrivaController
         }
 
         $body = $request->json()->all();
-        $validation = PaymentRequest::validate($body);
+        $expectedAmount = null;
+        $paymentRequestId = (string) ($body['paymentRequestId'] ?? '');
+        if ($paymentRequestId !== '') {
+            $record = $inquiries->findByPaymentRequestId($paymentRequestId);
+            if ($record) {
+                $expectedAmount = [
+                    'value' => $record['total_amount_value'] ?? null,
+                    'currency' => $record['total_amount_currency'] ?? null,
+                ];
+            }
+        }
+        $validation = PaymentRequest::validate($body, $expectedAmount);
         if (!$validation['ok']) {
-            return $this->paymentErrorResponse(400, '4002502', $validation['message']);
+            $code = str_starts_with($validation['message'], 'Invalid Field Format')
+                ? '4002501'
+                : '4002502';
+            return $this->paymentErrorResponse(400, $code, $validation['message']);
         }
 
         $partnerError = $this->validatePartnerId($request, '4042516');
@@ -171,16 +160,17 @@ class BrivaController
             return $headersValid;
         }
 
-        $billCode = (string) ($body['paymentRequestId'] ?? '');
-        $billAmount = $body['paidAmount']['value'] ?? '';
-
         try {
-            $wsdlResponse = $wsdl->payment((string) ($body['customerNo'] ?? ''), $billCode, $billAmount);
+            $payload = $resolver->resolve($body);
         } catch (\Throwable $ex) {
             return $this->paymentErrorResponse(502, '5022500', 'Payment service unavailable');
         }
 
-        return response()->json($wsdlResponse);
+        if (!is_array($payload)) {
+            return $this->paymentErrorResponse(502, '5022500', 'Payment service unavailable');
+        }
+
+        return response()->json($payload);
     }
 
     private function getHeader(Request $request, string $name): ?string

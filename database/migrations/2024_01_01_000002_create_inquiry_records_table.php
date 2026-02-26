@@ -18,6 +18,8 @@ return new class extends Migration {
             $table->string('bill_code')->nullable();
             $table->string('bill_info1')->nullable();
             $table->string('bill_info4')->nullable();
+            $table->string('total_amount_value')->nullable();
+            $table->string('total_amount_currency')->nullable();
             $table->timestamps();
         });
     }

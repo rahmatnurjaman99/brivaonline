@@ -7,8 +7,12 @@ namespace RahmatNurjaman99\BrivaOnline;
 use Illuminate\Support\ServiceProvider;
 use RahmatNurjaman99\BrivaOnline\Clients\SnapClient;
 use RahmatNurjaman99\BrivaOnline\Clients\WsdlClient;
+use RahmatNurjaman99\BrivaOnline\Contracts\InquiryResolver;
+use RahmatNurjaman99\BrivaOnline\Contracts\PaymentResolver;
 use RahmatNurjaman99\BrivaOnline\Repositories\InquiryRepository;
 use RahmatNurjaman99\BrivaOnline\Repositories\TokenRepository;
+use RahmatNurjaman99\BrivaOnline\Resolvers\WsdlInquiryResolver;
+use RahmatNurjaman99\BrivaOnline\Resolvers\WsdlPaymentResolver;
 
 class BrivaServiceProvider extends ServiceProvider
 {
@@ -20,6 +24,10 @@ class BrivaServiceProvider extends ServiceProvider
         $this->app->singleton(InquiryRepository::class);
         $this->app->singleton(SnapClient::class);
         $this->app->singleton(WsdlClient::class);
+        $resolverClass = (string) config('briva.inquiry_resolver', WsdlInquiryResolver::class);
+        $this->app->bind(InquiryResolver::class, $resolverClass);
+        $paymentResolverClass = (string) config('briva.payment_resolver', WsdlPaymentResolver::class);
+        $this->app->bind(PaymentResolver::class, $paymentResolverClass);
     }
 
     public function boot(): void

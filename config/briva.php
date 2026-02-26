@@ -17,6 +17,8 @@ return [
         'inquiry_method' => env('BRI_WSDL_INQUIRY_METHOD', 'inquiry'),
         'payment_method' => env('BRI_WSDL_PAYMENT_METHOD', 'payment'),
     ],
+    'inquiry_resolver' => \RahmatNurjaman99\BrivaOnline\Resolvers\WsdlInquiryResolver::class,
+    'payment_resolver' => \RahmatNurjaman99\BrivaOnline\Resolvers\WsdlPaymentResolver::class,
 
     'token_ttl_seconds' => (int) env('BRI_TOKEN_TTL_SECONDS', 3600),
 

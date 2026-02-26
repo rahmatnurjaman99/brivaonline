@@ -37,6 +37,11 @@ final class Formatter
         return $codeStr === '360' ? 'IDR' : $codeStr;
     }
 
+    public static function formatPartnerServiceId(string $value): string
+    {
+        return str_pad(trim($value), 8, ' ', STR_PAD_LEFT);
+    }
+
     public static function slugCompact($value): string
     {
         $raw = strtolower(trim((string) $value));
