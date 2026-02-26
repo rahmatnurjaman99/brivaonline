@@ -1,0 +1,30 @@
+{
+  "name": "rahmatnurjaman99/brivaonline",
+  "description": "Laravel package for BRI VA/SNAP integrations with WSDL inquiry/payment support.",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": "^8.1",
+    "guzzlehttp/guzzle": "^7.0",
+    "illuminate/support": "^11.0",
+    "illuminate/http": "^11.0",
+    "illuminate/database": "^11.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "RahmatNurjaman99\\BrivaOnline\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "RahmatNurjaman99\\BrivaOnline\\BrivaServiceProvider"
+      ],
+      "aliases": {
+        "Briva": "RahmatNurjaman99\\BrivaOnline\\Facades\\Briva"
+      }
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
