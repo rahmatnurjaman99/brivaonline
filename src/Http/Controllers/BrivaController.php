@@ -58,6 +58,79 @@ class BrivaController
         ]);
     }
 
+    public function testSignAccessToken(Request $request): JsonResponse
+    {
+        $privateKey = Env::normalizePem((string) config('briva.private_key_pem'));
+        if ($privateKey === '') {
+            return response()->json(['detail' => 'CLIENT_PRIVATE_KEY_PEM not configured'], 400);
+        }
+
+        $payload = $request->json()->all();
+        $clientId = (string) ($payload['client_id'] ?? '');
+        if ($clientId === '') {
+            $clientId = (string) config('briva.client_public_key_id');
+        }
+        if ($clientId === '') {
+            $clientId = (string) config('briva.client_id');
+        }
+        if ($clientId === '') {
+            return response()->json(['detail' => 'Missing client_id'], 400);
+        }
+
+        $timestamp = Timestamp::briNow();
+        try {
+            $signature = Signature::signAccessToken($clientId, $timestamp, $privateKey);
+        } catch (\Throwable $ex) {
+            return response()->json(['detail' => $ex->getMessage()], 500);
+        }
+
+        return response()->json([
+            'client_id' => $clientId,
+            'timestamp' => $timestamp,
+            'signature' => $signature,
+        ]);
+    }
+
+    public function testSignTransaction(Request $request): JsonResponse
+    {
+        $payload = $request->json()->all();
+        $path = $payload['path'] ?? null;
+        $method = $payload['method'] ?? 'POST';
+        $accessToken = $payload['access_token'] ?? null;
+        $body = $payload['body'] ?? [];
+
+        if (!$path || !$accessToken) {
+            return response()->json(['detail' => 'Missing path or access_token'], 400);
+        }
+
+        $clientId = (string) ($payload['client_id'] ?? '');
+        if ($clientId === '') {
+            $clientId = (string) config('briva.client_secret_id');
+        }
+
+        $secrets = $this->loadClientSecrets();
+        $clientSecret = $clientId !== '' ? ($secrets[$clientId] ?? '') : '';
+        if ($clientSecret === '') {
+            return response()->json(['detail' => 'Unauthorized Client'], 401);
+        }
+
+        $timestamp = Timestamp::briNow();
+        $signature = Signature::signTransaction(
+            (string) $method,
+            (string) $path,
+            (string) $accessToken,
+            is_array($body) ? $body : [],
+            $timestamp,
+            $clientSecret
+        );
+
+        return response()->json([
+            'client_id' => $clientId,
+            'timestamp' => $timestamp,
+            'signature' => $signature,
+        ]);
+    }
+
     public function inquiry(Request $request, TokenRepository $tokens, InquiryResolver $resolver, InquiryRepository $inquiries): JsonResponse
     {
         $tokenData = $this->requireToken($request, $tokens);

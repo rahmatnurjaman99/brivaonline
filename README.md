@@ -19,6 +19,45 @@ php artisan vendor:publish --tag=briva-migrations
 
 Routes are registered automatically when `briva.routes.enabled` is true.
 
+Test signing routes:
+
+```
+POST /_test/sign/access-token
+POST /_test/sign/transaction
+```
+
+Access token signing body:
+
+```json
+{
+  "client_id": "your-client-id"
+}
+```
+
+Transaction signing body:
+
+```json
+{
+  "path": "/snap/v1.0/transfer-va/payment",
+  "method": "POST",
+  "access_token": "your-access-token",
+  "body": {
+    "partnerServiceId": "00012345",
+    "customerNo": "0000000000001",
+    "virtualAccountNo": "000123450000000001",
+    "virtualAccountName": "John Doe",
+    "paymentRequestId": "REQ-1",
+    "paidAmount": {
+      "value": "200000.00",
+      "currency": "IDR"
+    },
+    "additionalInfo": {
+      "idApp": "TESTAPP1"
+    }
+  }
+}
+```
+
 ## Usage
 
 ```php
@@ -72,6 +111,16 @@ Example resolver return:
 return [
     'responseCode' => '2002500',
     'responseMessage' => 'Successful',
-    'paymentStatus' => '00',
+    'virtualAccountData' => [
+        'partnerServiceId' => '00012345',
+        'customerNo' => '123456',
+        'virtualAccountNo' => '00012345123456',
+        'virtualAccountName' => 'John Doe',
+        'paymentRequestId' => 'REQ-1',
+        'paidAmount' => ['value' => '1000.00', 'currency' => 'IDR'],
+        'paymentFlagStatus' => '00',
+        'paymentFlagReason' => ['english' => 'Success', 'indonesia' => 'Sukses'],
+    ],
+    'additionalInfo' => [],
 ];
 ```
