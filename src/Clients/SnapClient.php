@@ -16,7 +16,7 @@ class SnapClient implements BrivaClient
     {
         $timestamp = Timestamp::briNow();
         $clientId = (string) config('briva.client_id');
-        $privateKey = Env::normalizePem((string) config('briva.private_key_pem'));
+        $privateKey = Env::loadPem((string) config('briva.private_key_pem'));
         $signature = Signature::signAccessToken($clientId, $timestamp, $privateKey);
 
         $response = Http::withHeaders([

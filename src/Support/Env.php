@@ -6,6 +6,22 @@ namespace RahmatNurjaman99\BrivaOnline\Support;
 
 final class Env
 {
+    public static function loadPem(string $value): string
+    {
+        $raw = trim($value);
+        if ($raw === '') {
+            return '';
+        }
+        $candidate = str_starts_with($raw, '~') ? (getenv('HOME') ?: '') . substr($raw, 1) : $raw;
+        if ($candidate !== '' && is_file($candidate)) {
+            $contents = @file_get_contents($candidate);
+            if ($contents !== false) {
+                return self::normalizePem($contents);
+            }
+        }
+        return self::normalizePem($raw);
+    }
+
     public static function normalizePem(string $value): string
     {
         $cleaned = trim($value);

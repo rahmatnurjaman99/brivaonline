@@ -60,7 +60,7 @@ class BrivaController
 
     public function testSignAccessToken(Request $request): JsonResponse
     {
-        $privateKey = Env::normalizePem((string) config('briva.private_key_pem'));
+        $privateKey = Env::loadPem((string) config('briva.private_key_pem'));
         if ($privateKey === '') {
             return response()->json(['detail' => 'CLIENT_PRIVATE_KEY_PEM not configured'], 400);
         }
@@ -318,10 +318,10 @@ class BrivaController
     {
         $keys = Env::jsonMap((string) config('briva.client_public_keys_json'));
         if ($keys) {
-            return array_map([Env::class, 'normalizePem'], $keys);
+            return array_map([Env::class, 'loadPem'], $keys);
         }
 
-        $fallbackKey = Env::normalizePem((string) config('briva.client_public_key_pem'));
+        $fallbackKey = Env::loadPem((string) config('briva.client_public_key_pem'));
         $fallbackId = (string) config('briva.client_public_key_id');
         if ($fallbackKey !== '' && $fallbackId !== '') {
             return [$fallbackId => $fallbackKey];
