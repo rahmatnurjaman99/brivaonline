@@ -195,12 +195,13 @@ class BrivaController
 
     private function validatePartnerId(Request $request, string $notFoundCode): ?JsonResponse
     {
-        $partnerServiceId = trim((string) config('briva.partner_service_id'));
-        if ($partnerServiceId === '') {
+        // $partnerServiceId = trim((string) config('briva.partner_service_id'));
+        $partnerId = trim((string) config('briva.partner_id'));
+        if ($partnerId === '') {
             return null;
         }
         $header = $this->getHeader($request, 'X-PARTNER-ID');
-        if (!$header || $header !== $partnerServiceId) {
+        if (!$header || $header !== $partnerId) {
             return $this->errorResponse(404, $notFoundCode, 'Partner Not Found');
         }
         return null;
