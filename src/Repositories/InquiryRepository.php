@@ -32,6 +32,7 @@ class InquiryRepository
             'bill_info4' => $billInfo4,
             'total_amount_value' => $totalAmountValue,
             'total_amount_currency' => $totalAmountCurrency,
+            'status' => 'pending',
         ]);
     }
 
@@ -52,6 +53,14 @@ class InquiryRepository
             'bill_info4' => $row->bill_info4,
             'total_amount_value' => $row->total_amount_value,
             'total_amount_currency' => $row->total_amount_currency,
+            'status' => $row->status,
         ];
+    }
+
+    public function markPaidByPaymentRequestId(string $paymentRequestId): void
+    {
+        DB::table('inquiry_records')
+            ->where('payment_request_id', $paymentRequestId)
+            ->update(['status' => 'paid']);
     }
 }

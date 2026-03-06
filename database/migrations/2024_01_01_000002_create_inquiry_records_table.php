@@ -20,6 +20,7 @@ return new class extends Migration {
             $table->string('bill_info4')->nullable()->index();
             $table->string('total_amount_value')->nullable()->index();
             $table->string('total_amount_currency')->nullable()->index();
+            $table->string('status')->default('pending')->index();
             $table->timestamps();
             $table->index(['created_at']);
         });

@@ -243,6 +243,10 @@ class BrivaController
             return $this->paymentErrorResponse(502, '5022500', 'Payment service unavailable');
         }
 
+        if (($payload['responseCode'] ?? '') === '2002500' && $paymentRequestId !== '') {
+            $inquiries->markPaidByPaymentRequestId($paymentRequestId);
+        }
+
         return response()->json($payload);
     }
 
