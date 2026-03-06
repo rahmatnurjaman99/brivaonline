@@ -11,9 +11,10 @@ return new class extends Migration {
     {
         Schema::create('tokens', function (Blueprint $table): void {
             $table->string('token')->primary();
-            $table->string('client_id');
-            $table->unsignedBigInteger('expires_at');
+            $table->string('client_id')->index();
+            $table->unsignedBigInteger('expires_at')->index();
             $table->timestamps();
+            $table->index(['created_at']);
         });
     }
 
