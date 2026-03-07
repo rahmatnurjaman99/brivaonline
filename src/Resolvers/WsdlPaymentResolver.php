@@ -10,9 +10,7 @@ use RahmatNurjaman99\BrivaOnline\Support\Formatter;
 
 class WsdlPaymentResolver implements PaymentResolver
 {
-    public function __construct(private readonly WsdlClient $wsdl)
-    {
-    }
+    public function __construct(private readonly WsdlClient $wsdl) {}
 
     public function resolve(array $body): array
     {
@@ -40,10 +38,9 @@ class WsdlPaymentResolver implements PaymentResolver
             }
         }
 
-        $billDetails = $inquiryResult['billDetails']['BillDetail'] ?? [];
-        $firstItem = is_array($billDetails) && $billDetails ? $billDetails[0] : [];
-        $billAmount = is_array($firstItem) ? ($firstItem['billAmount'] ?? null) : null;
-        $billCode = is_array($firstItem) ? ($firstItem['billCode'] ?? '') : '';
+        $billDetail = $inquiryResult['billDetails']['BillDetail'] ?? [];
+        $billAmount = is_array($billDetail) ? ($billDetail['billAmount'] ?? null) : null;
+        $billCode = is_array($billDetail) ? ($billDetail['billCode'] ?? '') : '';
 
         $paidValue = Formatter::formatAmountValue($paidAmount);
         $wsdlValue = Formatter::formatAmountValue($billAmount);

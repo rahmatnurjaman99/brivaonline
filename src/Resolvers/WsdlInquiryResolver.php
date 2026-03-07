@@ -34,14 +34,13 @@ class WsdlInquiryResolver implements InquiryResolver
             }
         }
 
-        $billDetails = $inquiryResult['billDetails']['BillDetail'] ?? [];
-        $firstItem = is_array($billDetails) && $billDetails ? $billDetails[0] : [];
-        $billAmount = is_array($firstItem) ? ($firstItem['billAmount'] ?? null) : null;
+        $billDetail = $inquiryResult['billDetails']['BillDetail'] ?? [];
+        $billAmount = is_array($billDetail) ? ($billDetail['billAmount'] ?? null) : null;
 
         $totalValue = Formatter::formatAmountValue($billAmount);
         $totalCurrency = Formatter::mapCurrency($inquiryResult['currency'] ?? null);
-        $billShortName = is_array($firstItem) ? ($firstItem['billShortName'] ?? '') : '';
-        $billCode = is_array($firstItem) ? ($firstItem['billCode'] ?? '') : '';
+        $billShortName = is_array($billDetail) ? ($billDetail['billShortName'] ?? '') : '';
+        $billCode = is_array($billDetail) ? ($billDetail['billCode'] ?? '') : '';
         $billInfo1 = (string) ($inquiryResult['billInfo1'] ?? '');
         $billInfo4 = (string) ($inquiryResult['billInfo4'] ?? '');
 

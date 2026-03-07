@@ -39,9 +39,9 @@ class InquiryRequest
             }
         }
 
-        if (!isset($body['additionalInfo']['idApp']) || $body['additionalInfo']['idApp'] === '') {
-            return ['ok' => false, 'message' => 'Invalid Mandatory Field additionalInfo.idApp'];
-        }
+        // if (!isset($body['additionalInfo']['idApp']) || $body['additionalInfo']['idApp'] === '') {
+        //     return ['ok' => false, 'message' => 'Invalid Mandatory Field additionalInfo.idApp'];
+        // }
 
         return ['ok' => true, 'message' => 'OK'];
     }
