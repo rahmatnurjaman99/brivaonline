@@ -159,6 +159,7 @@ class BrivaController
         } catch (\Throwable $ex) {
             return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable');
         }
+
         if (!is_array($payload)) {
             return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable');
         }
@@ -193,7 +194,7 @@ class BrivaController
             );
         }
 
-        return response()->json($payload);
+        return $this->payloadResponse($payload);
     }
 
     public function payment(Request $request, TokenRepository $tokens, InquiryRepository $inquiries, PaymentResolver $resolver): JsonResponse
@@ -247,7 +248,7 @@ class BrivaController
             $inquiries->markPaidByPaymentRequestId($paymentRequestId);
         }
 
-        return response()->json($payload);
+        return $this->payloadResponse($payload);
     }
 
     private function getHeader(Request $request, string $name): ?string
@@ -365,5 +366,26 @@ class BrivaController
     private function paymentErrorResponse(int $status, string $code, string $message): JsonResponse
     {
         return response()->json(['responseCode' => $code, 'responseMessage' => $message], $status);
+    }
+
+    private function payloadResponse(array $payload): JsonResponse
+    {
+        $responseCode = (string) ($payload['responseCode'] ?? '');
+        $status = $this->httpStatusFromResponseCode($responseCode);
+        return response()->json($payload, $status ?? 200);
+    }
+
+    private function httpStatusFromResponseCode(string $responseCode): ?int
+    {
+        if (!preg_match('/^(?<status>\\d{3})\\d+$/', $responseCode, $matches)) {
+            return null;
+        }
+
+        $status = (int) $matches['status'];
+        if ($status < 100 || $status > 599) {
+            return null;
+        }
+
+        return $status;
     }
 }
