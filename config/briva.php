@@ -22,13 +22,15 @@ return [
 
     'token_ttl_seconds' => (int) env('BRI_TOKEN_TTL_SECONDS', 3600),
 
+    // start untuk simulasi request via postman
     'client_public_keys_json' => env('CLIENT_PUBLIC_KEYS_JSON', ''),
     'client_public_key_id' => env('CLIENT_PUBLIC_KEY_ID', ''),
     'client_public_key_pem' => env('CLIENT_PUBLIC_KEY_PEM', ''),
 
     'client_secrets_json' => env('CLIENT_SECRETS_JSON', ''),
     'client_secret_id' => env('CLIENT_SECRET_ID', ''),
-    'client_secret' => env('CLIENT_SECRET', ''),
+    'client_secret_key' => env('CLIENT_SECRET', ''),
+    // end untuk simulasi request via postman
 
     'routes' => [
         'enabled' => env('BRIVA_ROUTES_ENABLED', true),

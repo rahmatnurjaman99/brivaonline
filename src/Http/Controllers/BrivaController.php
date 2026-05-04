@@ -318,6 +318,7 @@ class BrivaController
         return null;
     }
 
+    //akan diupdate menggunakan data dari db jika digunakan multibank
     private function loadClientPublicKeys(): array
     {
         $keys = Env::jsonMap((string) config('briva.client_public_keys_json'));
@@ -334,6 +335,7 @@ class BrivaController
         return [];
     }
 
+    //jika multiple ini akan diupdate ngambil dari database
     private function loadClientSecrets(): array
     {
         $secrets = Env::jsonMap((string) config('briva.client_secrets_json'));
