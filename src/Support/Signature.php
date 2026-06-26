@@ -26,7 +26,12 @@ final class Signature
         if ($decoded === false) {
             return false;
         }
-        return openssl_verify($message, $decoded, $publicKeyPem, OPENSSL_ALGO_SHA256) === 1;
+
+        try {
+            return openssl_verify($message, $decoded, $publicKeyPem, OPENSSL_ALGO_SHA256) === 1;
+        } catch (\Throwable $th) {
+            return false;
+        }
     }
 
     public static function signTransaction(
