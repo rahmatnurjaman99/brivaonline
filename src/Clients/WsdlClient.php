@@ -45,6 +45,7 @@ class WsdlClient
             'exceptions' => true,
             'trace' => false,
             'cache_wsdl' => WSDL_CACHE_NONE,
+            'location' => strtok((string) config('briva.wsdl.endpoint'), '?'),
         ]);
         $result = $client->__soapCall($method, [$params]);
         return json_decode(json_encode($result, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);

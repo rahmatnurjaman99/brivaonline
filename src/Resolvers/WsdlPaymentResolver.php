@@ -54,6 +54,14 @@ class WsdlPaymentResolver implements PaymentResolver
 
         $paymentResponse = $this->wsdl->payment($customerNo, $billCode, $billAmount);
         $paymentResult = $paymentResponse['paymentResult'] ?? null;
+
+        if (is_null($paymentResult) || empty($paymentResult)) {
+            return [
+                'responseCode' => '5022400',
+                'responseMessage' => 'Payment service unavailable',
+            ];
+        }
+
         if (is_array($paymentResult)) {
             $payStatus = $paymentResult['status'] ?? [];
             if (is_array($payStatus)) {

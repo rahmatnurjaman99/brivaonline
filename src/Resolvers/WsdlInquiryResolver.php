@@ -60,15 +60,15 @@ class WsdlInquiryResolver implements InquiryResolver
                 'inquiryReason' => ['english' => 'Success', 'indonesia' => 'Sukses'],
             ],
             'additionalInfo' => $body['additionalInfo'] ? array_merge($body['additionalInfo'], [
-                'billShortName' => $billShortName,
-                'billCode' => $billCode,
-                'billInfo1' => $billInfo1,
-                'billInfo4' => $billInfo4,
+                'info1' => $billShortName,
+                'info2' => $billCode,
+                'info3' => $billInfo1,
+                'info4' => $billInfo4,
             ]) : [
-                'billShortName' => $billShortName,
-                'billCode' => $billCode,
-                'billInfo1' => $billInfo1,
-                'billInfo4' => $billInfo4,
+                'info1' => $billShortName,
+                'info2' => $billCode,
+                'info3' => $billInfo1,
+                'info4' => $billInfo4,
             ],
         ];
     }
