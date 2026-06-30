@@ -22,6 +22,14 @@ class WsdlInquiryResolver implements InquiryResolver
         }
 
         $status = $inquiryResult['status'] ?? [];
+
+        if (empty($status)) {
+            return [
+                'responseCode' => '5022400',
+                'responseMessage' => 'Inquiry service unavailable',
+            ];
+        }
+
         if (is_array($status)) {
             $isError = ($status['isError'] ?? false) === true;
             $errorCode = $status['errorCode'] ?? null;
