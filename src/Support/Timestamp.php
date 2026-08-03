@@ -13,7 +13,7 @@ final class Timestamp
     {
         $tz = new DateTimeZone('Asia/Jakarta');
         $now = new DateTimeImmutable('now', $tz);
-        $base = $now->format('Y-m-d\TH:i:s.000');
+        $base = $now->format('Y-m-d\TH:i:s');
         $offset = $now->format('P');
         return $base . $offset;
     }
@@ -26,12 +26,14 @@ final class Timestamp
 
     public static function parseBri(string $timestamp): ?DateTimeImmutable
     {
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000[+-]\d{2}:\d{2}$/', $timestamp)) {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/', $timestamp)) {
             return null;
         }
-        $normalized = substr($timestamp, 0, -3) . substr($timestamp, -2);
-        $dt = DateTimeImmutable::createFromFormat('Y-m-d\TH:i:s.000O', $normalized);
-        return $dt ?: null;
+
+        return DateTimeImmutable::createFromFormat(
+            '!Y-m-d\TH:i:sP',
+            $timestamp
+        ) ?: null;
     }
 
     public static function withinSkew(DateTimeImmutable $timestamp, int $maxSkewSeconds): bool
