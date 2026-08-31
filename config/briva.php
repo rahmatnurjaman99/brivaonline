@@ -9,7 +9,7 @@ return [
     'private_key_pem' => env('BRI_PRIVATE_KEY_PEM', ''),
     'public_key_pem' => env('BRI_PUBLIC_KEY_PEM', ''),
     'channel_id' => env('BRI_CHANNEL_ID', ''),
-    'partner_id' => env('BRI_PARTNER_ID', ''),
+    'partner_id' => env('PARTNER_ID', ''),
     'partner_service_id' => env('BRI_PARTNER_SERVICE_ID', ''),
 
     'wsdl' => [
