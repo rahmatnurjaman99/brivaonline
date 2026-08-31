@@ -42,11 +42,13 @@ class WsdlClient
             throw new RuntimeException('SoapClient extension not available.');
         }
 
+        $verifySsl = \Illuminate\Support\Facades\App::environment(['production', 'master']);
+
         $context = stream_context_create([
             'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true,
+                'verify_peer' => $verifySsl,
+                'verify_peer_name' => $verifySsl,
+                'allow_self_signed' => !$verifySsl,
             ],
         ]);
 
