@@ -162,11 +162,11 @@ class BrivaController
         try {
             $payload = $resolver->resolve($body);
         } catch (\Throwable $ex) {
-            return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable');
+            return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable 1');
         }
 
         if (!is_array($payload)) {
-            return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable');
+            return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable 2');
         }
 
         $inquiryRequestId = (string) ($body['inquiryRequestId'] ?? '');
