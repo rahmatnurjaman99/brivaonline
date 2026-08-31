@@ -19,7 +19,7 @@ class WsdlInquiryResolver implements InquiryResolver
         $wsdlResponse = $this->wsdl->inquiry($customerNo);
         \Illuminate\Support\Facades\Log::debug('wsdlResponse', ['wsdlResponse' => $wsdlResponse]);
         $inquiryResult = $wsdlResponse['inquiryResult'] ?? null;
-        \Illuminate\Support\Facades\Log::debug('inquiryResult', ['wsdlResponse' => $inquiryResult]);
+        \Illuminate\Support\Facades\Log::debug('inquiryResult', ['inquiryResult' => $inquiryResult]);
         if (!is_array($inquiryResult)) {
             throw new \RuntimeException('Inquiry service unavailable');
         }
