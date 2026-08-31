@@ -133,6 +133,11 @@ class BrivaController
 
     public function inquiry(Request $request, TokenRepository $tokens, InquiryResolver $resolver, InquiryRepository $inquiries): JsonResponse
     {
+        $defaultHeadersValid = $this->validateDefaultHeaders($request);
+        if ($defaultHeadersValid instanceof JsonResponse) {
+            return $defaultHeadersValid;
+        }
+
         $tokenData = $this->requireToken($request, $tokens);
         if ($tokenData instanceof JsonResponse) {
             return $tokenData;
@@ -144,10 +149,10 @@ class BrivaController
             return $this->inquiryErrorResponse(400, '4002402', $validation['message']);
         }
 
-        $partnerError = $this->validatePartnerId($request, '4042416');
-        if ($partnerError) {
-            return $partnerError;
-        }
+        // $partnerError = $this->validatePartnerId($request, '4042416');
+        // if ($partnerError) {
+        //     return $partnerError;
+        // }
 
         $headersValid = $this->validateTransactionSignature($request, $body, $tokenData['token'], $tokenData['client_id']);
         if ($headersValid instanceof JsonResponse) {
@@ -199,6 +204,11 @@ class BrivaController
 
     public function payment(Request $request, TokenRepository $tokens, InquiryRepository $inquiries, PaymentResolver $resolver): JsonResponse
     {
+        $defaultHeadersValid = $this->validateDefaultHeaders($request);
+        if ($defaultHeadersValid instanceof JsonResponse) {
+            return $defaultHeadersValid;
+        }
+
         $tokenData = $this->requireToken($request, $tokens);
         if ($tokenData instanceof JsonResponse) {
             return $tokenData;
@@ -224,10 +234,10 @@ class BrivaController
             return $this->paymentErrorResponse(400, $code, $validation['message']);
         }
 
-        $partnerError = $this->validatePartnerId($request, '4042516');
-        if ($partnerError) {
-            return $partnerError;
-        }
+        // $partnerError = $this->validatePartnerId($request, '4042516');
+        // if ($partnerError) {
+        //     return $partnerError;
+        // }
 
         $headersValid = $this->validateTransactionSignature($request, $body, $tokenData['token'], $tokenData['client_id']);
         if ($headersValid instanceof JsonResponse) {
@@ -273,14 +283,22 @@ class BrivaController
 
     private function validatePartnerId(Request $request, string $notFoundCode): ?JsonResponse
     {
-        // $partnerServiceId = trim((string) config('briva.partner_service_id'));
+        $partnerServiceId = trim((string) config('briva.partner_service_id'));
         $partnerId = trim((string) config('briva.partner_id'));
-        if ($partnerId === '') {
-            return null;
-        }
-        $header = $this->getHeader($request, 'X-PARTNER-ID');
-        if (!$header || $header !== $partnerId) {
+        // if ($partnerId === '') {
+        //     return null;
+        // }
+
+        $xPartnerID = $this->getHeader($request, 'X-PARTNER-ID');
+
+        if (!$xPartnerID || $xPartnerID !== $partnerId) {
             return $this->errorResponse(404, $notFoundCode, 'Partner Not Found');
+        }
+
+        $xPartnerServiceId = $request->partnerServiceId;
+
+        if (!$xPartnerServiceId || $xPartnerServiceId !== $partnerServiceId) {
+            return $this->errorResponse(404, $notFoundCode, 'Partner Service Id Not Found');
         }
         return null;
     }
@@ -387,5 +405,35 @@ class BrivaController
         }
 
         return $status;
+    }
+
+    public function validateDefaultHeaders(Request $request): bool
+    {
+        $timestamp = $this->getHeader($request, 'X-TIMESTAMP');
+        $contentType = $this->getHeader($request, 'Content-Type');
+        $xPartnerID = $this->getHeader($request, 'X-PARTNER-ID');        
+        $channelID = $this->getHeader($request, 'CHANNEL-ID');        
+        $xExternalID = $this->getHeader($request, 'X-EXTERNAL-ID');        
+        
+        $mandatoryFields = [$timestamp, $contentType, $xPartnerID, $channelID, $xExternalID];
+        $fieldNames = ['X-TIMESTAMP', 'Content-Type', 'X-PARTNER-ID', 'CHANNEL-ID', 'X-EXTERNAL-ID'];
+        
+        foreach($mandatoryFields as $index => $field){
+            if(!$field){
+                return $this->errorResponse(400, '4002402', 'Invalid Mandatory Field '.$fieldNames[$index]);   
+            }
+        }
+
+        $partnerId = (string) config('briva.partner_id');
+        
+        if ($contentType !== 'application/json') {
+            return $this->errorResponse(400, '400402', 'Invalid Mandatory Field Content-Type');
+        }
+
+        if ($xPartnerID !== $partnerId) {
+            return $this->errorResponse(401, '4012400', 'Unauthorized Partner ID Not Match');
+        }
+     
+        return null;
     }
 }
