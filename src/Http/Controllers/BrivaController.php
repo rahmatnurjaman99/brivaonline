@@ -407,7 +407,7 @@ class BrivaController
         return $status;
     }
 
-    public function validateDefaultHeaders(Request $request): bool
+    public function validateDefaultHeaders(Request $request): ?JsonResponse
     {
         $timestamp = $this->getHeader($request, 'X-TIMESTAMP');
         $contentType = $this->getHeader($request, 'Content-Type');
