@@ -162,6 +162,7 @@ class BrivaController
         try {
             $payload = $resolver->resolve($body);
         } catch (\Throwable $ex) {
+            \Illuminate\Support\Facades\Log::debug('ex', ['ex' => $ex->getMessage()]);
             return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable 1');
         }
 
