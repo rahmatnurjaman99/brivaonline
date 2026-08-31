@@ -41,11 +41,21 @@ class WsdlClient
         if (!class_exists('SoapClient')) {
             throw new RuntimeException('SoapClient extension not available.');
         }
+
+        $context = stream_context_create([
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true,
+            ],
+        ]);
+
         $client = new \SoapClient((string) config('briva.wsdl.endpoint'), [
             'exceptions' => true,
             'trace' => false,
             'cache_wsdl' => WSDL_CACHE_NONE,
             'location' => strtok((string) config('briva.wsdl.endpoint'), '?'),
+            'stream_context' => $context,
         ]);
         $result = $client->__soapCall($method, [$params]);
         return json_decode(json_encode($result, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
