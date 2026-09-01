@@ -22,6 +22,14 @@ return [
 
     'token_ttl_seconds' => (int) env('BRI_TOKEN_TTL_SECONDS', 3600),
 
+    'virtual_account' => [
+        'expiry_minutes' => (int) env('BRIVA_VA_EXPIRY_MINUTES', 1440),
+    ],
+
+    'external_id' => [
+        'window_minutes' => (int) env('BRIVA_EXTERNAL_ID_WINDOW_MINUTES', 1440),
+    ],
+
     // start untuk simulasi request via postman
     'client_public_keys_json' => env('CLIENT_PUBLIC_KEYS_JSON', ''),
     'client_public_key_id' => env('CLIENT_PUBLIC_KEY_ID', ''),

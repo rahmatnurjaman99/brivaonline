@@ -6,78 +6,84 @@ namespace RahmatNurjaman99\BrivaOnline\Resolvers;
 
 use RahmatNurjaman99\BrivaOnline\Clients\WsdlClient;
 use RahmatNurjaman99\BrivaOnline\Contracts\InquiryResolver;
+use RahmatNurjaman99\BrivaOnline\Repositories\WsdlLogRepository;
 use RahmatNurjaman99\BrivaOnline\Support\Formatter;
 
 class WsdlInquiryResolver implements InquiryResolver
 {
-    public function __construct(private readonly WsdlClient $wsdl) {}
+    public function __construct(private readonly WsdlClient $wsdl, private readonly WsdlLogRepository $logs) {}
 
     public function resolve(array $body): array
     {
         $customerNo = (string) ($body['customerNo'] ?? '');
-        $wsdlResponse = $this->wsdl->inquiry($customerNo);
-        $inquiryResult = $wsdlResponse['inquiryResult'] ?? null;
-        if (!is_array($inquiryResult)) {
-            throw new \RuntimeException('Inquiry service unavailable');
-        }
+        $inquiryRequestId = (string) ($body['inquiryRequestId'] ?? '');
+        $wsdlResponse = null;
 
-        $status = $inquiryResult['status'] ?? [];
+        try {
+            $wsdlResponse = $this->wsdl->inquiry($customerNo);
+            $inquiryResult = $wsdlResponse['inquiryResult'] ?? null;
+            if (!is_array($inquiryResult)) {
+                throw new \RuntimeException('Inquiry service unavailable');
+            }
 
-        if (empty($status)) {
-            return [
-                'responseCode' => '5022400',
-                'responseMessage' => 'Inquiry service unavailable 3',
-            ];
-        }
+            $status = $inquiryResult['status'] ?? [];
 
-        if (is_array($status)) {
-            $isError = ($status['isError'] ?? false) === true;
-            $errorCode = $status['errorCode'] ?? null;
-            if ($isError || ($errorCode && $errorCode !== '00')) {
-                $description = $status['statusDescription'] ?? 'Invalid customerNo';
+            if (empty($status)) {
                 return [
-                    'responseCode' => '4002401',
-                    'responseMessage' => $description,
+                    'responseCode' => '5022400',
+                    'responseMessage' => 'Inquiry service unavailable',
                 ];
             }
+
+            if (is_array($status)) {
+                $isError = ($status['isError'] ?? false) === true;
+                $errorCode = $status['errorCode'] ?? null;
+                if ($isError || ($errorCode && $errorCode !== '00')) {
+                    $description = $status['statusDescription'] ?? 'Invalid customerNo';
+                    return [
+                        'responseCode' => '4042412',
+                        'responseMessage' => $description,
+                    ];
+                }
+            }
+
+            $billDetail = $inquiryResult['billDetails']['BillDetail'] ?? [];
+            $billAmount = is_array($billDetail) ? ($billDetail['billAmount'] ?? null) : null;
+
+            $totalValue = Formatter::formatAmountValue($billAmount);
+            $totalCurrency = Formatter::mapCurrency($inquiryResult['currency'] ?? null);
+            $billShortName = is_array($billDetail) ? ($billDetail['billShortName'] ?? '') : '';
+            $billCode = is_array($billDetail) ? ($billDetail['billCode'] ?? '') : '';
+            $billInfo1 = (string) ($inquiryResult['billInfo1'] ?? '');
+            $billInfo4 = (string) ($inquiryResult['billInfo4'] ?? '');
+
+            return [
+                'responseCode' => '2002400',
+                'responseMessage' => 'Successful',
+                'virtualAccountData' => [
+                    'partnerServiceId' => (string) ($body['partnerServiceId'] ?? ''),
+                    'customerNo' => $customerNo,
+                    'virtualAccountNo' => (string) ($body['virtualAccountNo'] ?? ''),
+                    'virtualAccountName' => (string) ($inquiryResult['billInfo2'] ?? $body['virtualAccountName'] ?? 'John Doe'),
+                    'inquiryRequestId' => $inquiryRequestId,
+                    'totalAmount' => ['value' => $totalValue, 'currency' => $totalCurrency],
+                    'inquiryStatus' => '00',
+                    'inquiryReason' => ['english' => 'Success', 'indonesia' => 'Sukses'],
+                ],
+                'additionalInfo' => $body['additionalInfo'] ? array_merge($body['additionalInfo'], [
+                    'info1' => $billShortName,
+                    'info2' => $billCode,
+                    'info3' => $billInfo1,
+                    'info4' => $billInfo4,
+                ]) : [
+                    'info1' => $billShortName,
+                    'info2' => $billCode,
+                    'info3' => $billInfo1,
+                    'info4' => $billInfo4,
+                ],
+            ];
+        } finally {
+            $this->logs->log('inquiry', $customerNo, $inquiryRequestId, $body, $wsdlResponse);
         }
-
-        $billDetail = $inquiryResult['billDetails']['BillDetail'] ?? [];
-        $billAmount = is_array($billDetail) ? ($billDetail['billAmount'] ?? null) : null;
-
-        $totalValue = Formatter::formatAmountValue($billAmount);
-        $totalCurrency = Formatter::mapCurrency($inquiryResult['currency'] ?? null);
-        $billShortName = is_array($billDetail) ? ($billDetail['billShortName'] ?? '') : '';
-        $billCode = is_array($billDetail) ? ($billDetail['billCode'] ?? '') : '';
-        $billInfo1 = (string) ($inquiryResult['billInfo1'] ?? '');
-        $billInfo4 = (string) ($inquiryResult['billInfo4'] ?? '');
-
-        $inquiryRequestId = (string) ($body['inquiryRequestId'] ?? '');
-
-        return [
-            'responseCode' => '2002400',
-            'responseMessage' => 'Successful',
-            'virtualAccountData' => [
-                'partnerServiceId' => (string) ($body['partnerServiceId'] ?? ''),
-                'customerNo' => $customerNo,
-                'virtualAccountNo' => (string) ($body['virtualAccountNo'] ?? ''),
-                'virtualAccountName' => (string) ($inquiryResult['billInfo2'] ?? $body['virtualAccountName'] ?? 'John Doe'),
-                'inquiryRequestId' => $inquiryRequestId,
-                'totalAmount' => ['value' => $totalValue, 'currency' => $totalCurrency],
-                'inquiryStatus' => '00',
-                'inquiryReason' => ['english' => 'Success', 'indonesia' => 'Sukses'],
-            ],
-            'additionalInfo' => $body['additionalInfo'] ? array_merge($body['additionalInfo'], [
-                'info1' => $billShortName,
-                'info2' => $billCode,
-                'info3' => $billInfo1,
-                'info4' => $billInfo4,
-            ]) : [
-                'info1' => $billShortName,
-                'info2' => $billCode,
-                'info3' => $billInfo1,
-                'info4' => $billInfo4,
-            ],
-        ];
     }
 }

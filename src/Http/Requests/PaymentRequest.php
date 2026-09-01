@@ -8,7 +8,7 @@ use RahmatNurjaman99\BrivaOnline\Support\Formatter;
 
 class PaymentRequest
 {
-    public static function validate(array $body, ?array $expectedAmount = null): array
+    public static function validate(array $body): array
     {
         $required = ['partnerServiceId', 'customerNo', 'virtualAccountNo', 'paymentRequestId'];
         foreach ($required as $field) {
@@ -46,20 +46,24 @@ class PaymentRequest
             return ['ok' => false, 'message' => 'Invalid Mandatory Field paidAmount'];
         }
 
-        if ($expectedAmount) {
-            $expectedValue = Formatter::formatAmountValue($expectedAmount['value'] ?? null);
-            $expectedCurrency = (string) ($expectedAmount['currency'] ?? '');
-            $actualValue = Formatter::formatAmountValue($body['paidAmount']['value'] ?? null);
-            $actualCurrency = (string) ($body['paidAmount']['currency'] ?? '');
-            if ($expectedValue !== '' && $expectedValue !== $actualValue) {
-                return ['ok' => false, 'message' => 'Invalid Field Format paidAmount'];
-            }
-            if ($expectedCurrency !== '' && $expectedCurrency !== $actualCurrency) {
-                return ['ok' => false, 'message' => 'Invalid Field Format paidAmount'];
-            }
+        return ['ok' => true, 'message' => 'OK'];
+    }
+
+    public static function amountMatches(array $body, array $expectedAmount): bool
+    {
+        $expectedValue = Formatter::formatAmountValue($expectedAmount['value'] ?? null);
+        $expectedCurrency = (string) ($expectedAmount['currency'] ?? '');
+        $actualValue = Formatter::formatAmountValue($body['paidAmount']['value'] ?? null);
+        $actualCurrency = (string) ($body['paidAmount']['currency'] ?? '');
+
+        if ($expectedValue !== '' && $expectedValue !== $actualValue) {
+            return false;
+        }
+        if ($expectedCurrency !== '' && $expectedCurrency !== $actualCurrency) {
+            return false;
         }
 
-        return ['ok' => true, 'message' => 'OK'];
+        return true;
     }
 
     private static function isNumericWithSpaces(string $value): bool

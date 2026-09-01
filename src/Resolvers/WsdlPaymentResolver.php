@@ -6,11 +6,12 @@ namespace RahmatNurjaman99\BrivaOnline\Resolvers;
 
 use RahmatNurjaman99\BrivaOnline\Clients\WsdlClient;
 use RahmatNurjaman99\BrivaOnline\Contracts\PaymentResolver;
+use RahmatNurjaman99\BrivaOnline\Repositories\WsdlLogRepository;
 use RahmatNurjaman99\BrivaOnline\Support\Formatter;
 
 class WsdlPaymentResolver implements PaymentResolver
 {
-    public function __construct(private readonly WsdlClient $wsdl) {}
+    public function __construct(private readonly WsdlClient $wsdl, private readonly WsdlLogRepository $logs) {}
 
     public function resolve(array $body): array
     {
@@ -18,81 +19,86 @@ class WsdlPaymentResolver implements PaymentResolver
         $paymentRequestId = (string) ($body['paymentRequestId'] ?? '');
         $paidAmount = $body['paidAmount']['value'] ?? null;
         $paidCurrency = (string) ($body['paidAmount']['currency'] ?? '');
+        $wsdlResponse = ['inquiry' => null, 'payment' => null];
 
-        $wsdlResponse = $this->wsdl->inquiry($customerNo);
-        $inquiryResult = $wsdlResponse['inquiryResult'] ?? null;
-        if (!is_array($inquiryResult)) {
-            throw new \RuntimeException('Inquiry service unavailable');
-        }
-
-        $status = $inquiryResult['status'] ?? [];
-        if (is_array($status)) {
-            $isError = ($status['isError'] ?? false) === true;
-            $errorCode = $status['errorCode'] ?? null;
-            if ($isError || ($errorCode && $errorCode !== '00')) {
-                $description = $status['statusDescription'] ?? 'Payment failed';
-                return [
-                    'responseCode' => '4002501',
-                    'responseMessage' => $description,
-                ];
+        try {
+            $wsdlResponse['inquiry'] = $this->wsdl->inquiry($customerNo);
+            $inquiryResult = $wsdlResponse['inquiry']['inquiryResult'] ?? null;
+            if (!is_array($inquiryResult)) {
+                throw new \RuntimeException('Inquiry service unavailable');
             }
-        }
 
-        $billDetail = $inquiryResult['billDetails']['BillDetail'] ?? [];
-        $billAmount = is_array($billDetail) ? ($billDetail['billAmount'] ?? null) : null;
-        $billCode = is_array($billDetail) ? ($billDetail['billCode'] ?? '') : '';
-
-        $paidValue = Formatter::formatAmountValue($paidAmount);
-        $wsdlValue = Formatter::formatAmountValue($billAmount);
-        $wsdlCurrency = Formatter::mapCurrency($inquiryResult['currency'] ?? null);
-        if ($paidValue !== $wsdlValue || $paidCurrency !== $wsdlCurrency) {
-            return [
-                'responseCode' => '4002501',
-                'responseMessage' => 'Invalid Field Format paidAmount',
-            ];
-        }
-
-        $paymentResponse = $this->wsdl->payment($customerNo, $billCode, $billAmount);
-        $paymentResult = $paymentResponse['paymentResult'] ?? null;
-
-        if (is_null($paymentResult) || empty($paymentResult)) {
-            return [
-                'responseCode' => '5022400',
-                'responseMessage' => 'Payment service unavailable',
-            ];
-        }
-
-        if (is_array($paymentResult)) {
-            $payStatus = $paymentResult['status'] ?? [];
-            if (is_array($payStatus)) {
-                $isError = ($payStatus['isError'] ?? false) === true;
-                $errorCode = $payStatus['errorCode'] ?? null;
+            $status = $inquiryResult['status'] ?? [];
+            if (is_array($status)) {
+                $isError = ($status['isError'] ?? false) === true;
+                $errorCode = $status['errorCode'] ?? null;
                 if ($isError || ($errorCode && $errorCode !== '00')) {
-                    $description = $payStatus['statusDescription'] ?? 'Payment failed';
+                    $description = $status['statusDescription'] ?? 'Payment failed';
                     return [
                         'responseCode' => '4002501',
                         'responseMessage' => $description,
                     ];
                 }
             }
+
+            $billDetail = $inquiryResult['billDetails']['BillDetail'] ?? [];
+            $billAmount = is_array($billDetail) ? ($billDetail['billAmount'] ?? null) : null;
+            $billCode = is_array($billDetail) ? ($billDetail['billCode'] ?? '') : '';
+
+            $paidValue = Formatter::formatAmountValue($paidAmount);
+            $wsdlValue = Formatter::formatAmountValue($billAmount);
+            $wsdlCurrency = Formatter::mapCurrency($inquiryResult['currency'] ?? null);
+            if ($paidValue !== $wsdlValue || $paidCurrency !== $wsdlCurrency) {
+                return [
+                    'responseCode' => '4002501',
+                    'responseMessage' => 'Invalid Field Format paidAmount',
+                ];
+            }
+
+            $wsdlResponse['payment'] = $this->wsdl->payment($customerNo, $billCode, $billAmount);
+            $paymentResult = $wsdlResponse['payment']['paymentResult'] ?? null;
+
+            if (is_null($paymentResult) || empty($paymentResult)) {
+                return [
+                    'responseCode' => '5022400',
+                    'responseMessage' => 'Payment service unavailable',
+                ];
+            }
+
+            if (is_array($paymentResult)) {
+                $payStatus = $paymentResult['status'] ?? [];
+                if (is_array($payStatus)) {
+                    $isError = ($payStatus['isError'] ?? false) === true;
+                    $errorCode = $payStatus['errorCode'] ?? null;
+                    if ($isError || ($errorCode && $errorCode !== '00')) {
+                        $description = $payStatus['statusDescription'] ?? 'Payment failed';
+                        return [
+                            'responseCode' => '4002501',
+                            'responseMessage' => $description,
+                        ];
+                    }
+                }
+            }
+
+            $paidValue = Formatter::formatAmountValue($paidAmount);
+
+            return [
+                'responseCode' => '2002500',
+                'responseMessage' => 'Successful',
+                'virtualAccountData' => [
+                    'partnerServiceId' => (string) ($body['partnerServiceId'] ?? ''),
+                    'customerNo' => $customerNo,
+                    'virtualAccountNo' => (string) ($body['virtualAccountNo'] ?? ''),
+                    'virtualAccountName' => (string) ($inquiryResult['billInfo2'] ?? $body['virtualAccountName'] ?? 'John Doe'),
+                    'paymentRequestId' => $paymentRequestId,
+                    'paidAmount' => ['value' => $paidValue, 'currency' => $paidCurrency],
+                    'paymentFlagStatus' => '00',
+                    'paymentFlagReason' => ['english' => 'Success', 'indonesia' => 'Sukses'],
+                ],
+                'additionalInfo' => $body['additionalInfo'] ?? [],
+            ];
+        } finally {
+            $this->logs->log('payment', $customerNo, $paymentRequestId, $body, $wsdlResponse);
         }
-
-        $paidValue = Formatter::formatAmountValue($paidAmount);
-
-        return [
-            'responseCode' => '2002500',
-            'responseMessage' => 'Successful',
-            'virtualAccountData' => [
-                'partnerServiceId' => (string) ($body['partnerServiceId'] ?? ''),
-                'customerNo' => $customerNo,
-                'virtualAccountNo' => (string) ($body['virtualAccountNo'] ?? ''),
-                'virtualAccountName' => (string) ($inquiryResult['billInfo2'] ?? $body['virtualAccountName'] ?? 'John Doe'),
-                'paymentRequestId' => $paymentRequestId,
-                'paidAmount' => ['value' => $paidValue, 'currency' => $paidCurrency],
-                'paymentFlagStatus' => '00',
-                'paymentFlagReason' => ['english' => 'Success', 'indonesia' => 'Sukses'],
-            ],
-            'additionalInfo' => $body['additionalInfo'] ?? [],
-        ];
     }
 }

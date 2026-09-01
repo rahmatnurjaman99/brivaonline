@@ -10,6 +10,7 @@ use RahmatNurjaman99\BrivaOnline\Contracts\InquiryResolver;
 use RahmatNurjaman99\BrivaOnline\Contracts\PaymentResolver;
 use RahmatNurjaman99\BrivaOnline\Http\Requests\InquiryRequest;
 use RahmatNurjaman99\BrivaOnline\Http\Requests\PaymentRequest;
+use RahmatNurjaman99\BrivaOnline\Repositories\ExternalIdRepository;
 use RahmatNurjaman99\BrivaOnline\Repositories\InquiryRepository;
 use RahmatNurjaman99\BrivaOnline\Repositories\TokenRepository;
 use RahmatNurjaman99\BrivaOnline\Support\Env;
@@ -131,9 +132,9 @@ class BrivaController
         ]);
     }
 
-    public function inquiry(Request $request, TokenRepository $tokens, InquiryResolver $resolver, InquiryRepository $inquiries): JsonResponse
+    public function inquiry(Request $request, TokenRepository $tokens, InquiryResolver $resolver, InquiryRepository $inquiries, ExternalIdRepository $externalIds): JsonResponse
     {
-        $defaultHeadersValid = $this->validateDefaultHeaders($request);
+        $defaultHeadersValid = $this->validateDefaultHeaders($request, '24', $externalIds);
         if ($defaultHeadersValid instanceof JsonResponse) {
             return $defaultHeadersValid;
         }
@@ -159,18 +160,28 @@ class BrivaController
             return $headersValid;
         }
 
+        $inquiryRequestId = (string) ($body['inquiryRequestId'] ?? '');
+        $existing = $inquiries->findByInquiryRequestId($inquiryRequestId);
+        if ($existing) {
+            if (($existing['status'] ?? null) === 'paid') {
+                return $this->inquiryErrorResponse(404, '4042414', 'Bill has been paid');
+            }
+            if ($inquiries->isExpired($existing)) {
+                return $this->inquiryErrorResponse(404, '4042419', 'Bill expired');
+            }
+        }
+
         try {
             $payload = $resolver->resolve($body);
         } catch (\Throwable $ex) {
             \Illuminate\Support\Facades\Log::debug('ex', ['ex' => $ex->getMessage()]);
-            return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable 1');
+            return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable');
         }
 
         if (!is_array($payload)) {
-            return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable 2');
+            return $this->inquiryErrorResponse(502, '5022400', 'Inquiry service unavailable');
         }
 
-        $inquiryRequestId = (string) ($body['inquiryRequestId'] ?? '');
         $virtualAccountData = $payload['virtualAccountData'] ?? [];
         $billShortName = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billShortName'] ?? '') : '';
         $billCode = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billCode'] ?? '') : '';
@@ -186,26 +197,31 @@ class BrivaController
         $totalAmountCurrency = is_array($totalAmount) ? ($totalAmount['currency'] ?? null) : null;
 
         if ($slug !== '' && $inquiryRequestId !== '' && is_array($virtualAccountData)) {
-            $inquiries->upsert(
-                $inquiryRequestId,
-                $inquiryRequestId,
-                (string) ($virtualAccountData['customerNo'] ?? $body['customerNo'] ?? ''),
-                $slug,
-                $billShortName,
-                $billCode,
-                $billInfo1,
-                $billInfo4,
-                $totalAmountValue !== null ? (string) $totalAmountValue : null,
-                $totalAmountCurrency !== null ? (string) $totalAmountCurrency : null
-            );
+            $expiryMinutes = (int) config('briva.virtual_account.expiry_minutes', 1440);
+            $inquiries->upsertVirtualAccount([
+                'inquiry_request_id' => $inquiryRequestId,
+                'partner_service_id' => (string) ($virtualAccountData['partnerServiceId'] ?? $body['partnerServiceId'] ?? ''),
+                'customer_no' => (string) ($virtualAccountData['customerNo'] ?? $body['customerNo'] ?? ''),
+                'virtual_account_no' => (string) ($virtualAccountData['virtualAccountNo'] ?? $body['virtualAccountNo'] ?? ''),
+                'virtual_account_name' => (string) ($virtualAccountData['virtualAccountName'] ?? ''),
+                'slug' => $slug,
+                'bill_short_name' => $billShortName,
+                'bill_code' => $billCode,
+                'bill_info1' => $billInfo1,
+                'bill_info4' => $billInfo4,
+                'total_amount_value' => $totalAmountValue !== null ? (string) $totalAmountValue : null,
+                'total_amount_currency' => $totalAmountCurrency !== null ? (string) $totalAmountCurrency : null,
+                'inquiry_status' => (string) ($virtualAccountData['inquiryStatus'] ?? ''),
+                'inquiry_reason' => $virtualAccountData['inquiryReason'] ?? null,
+            ], $expiryMinutes);
         }
 
         return $this->payloadResponse($payload);
     }
 
-    public function payment(Request $request, TokenRepository $tokens, InquiryRepository $inquiries, PaymentResolver $resolver): JsonResponse
+    public function payment(Request $request, TokenRepository $tokens, InquiryRepository $inquiries, PaymentResolver $resolver, ExternalIdRepository $externalIds): JsonResponse
     {
-        $defaultHeadersValid = $this->validateDefaultHeaders($request);
+        $defaultHeadersValid = $this->validateDefaultHeaders($request, '25', $externalIds);
         if ($defaultHeadersValid instanceof JsonResponse) {
             return $defaultHeadersValid;
         }
@@ -216,18 +232,7 @@ class BrivaController
         }
 
         $body = $request->json()->all();
-        $expectedAmount = null;
-        $paymentRequestId = (string) ($body['paymentRequestId'] ?? '');
-        if ($paymentRequestId !== '') {
-            $record = $inquiries->findByPaymentRequestId($paymentRequestId);
-            if ($record) {
-                $expectedAmount = [
-                    'value' => $record['total_amount_value'] ?? null,
-                    'currency' => $record['total_amount_currency'] ?? null,
-                ];
-            }
-        }
-        $validation = PaymentRequest::validate($body, $expectedAmount);
+        $validation = PaymentRequest::validate($body);
         if (!$validation['ok']) {
             $code = str_starts_with($validation['message'], 'Invalid Field Format')
                 ? '4002501'
@@ -243,6 +248,27 @@ class BrivaController
         $headersValid = $this->validateTransactionSignature($request, $body, $tokenData['token'], $tokenData['client_id']);
         if ($headersValid instanceof JsonResponse) {
             return $headersValid;
+        }
+
+        // paymentRequestId must reference a still-valid inquiryRequestId (paymentRequestId == inquiryRequestId).
+        $paymentRequestId = (string) ($body['paymentRequestId'] ?? '');
+        $record = $inquiries->findByInquiryRequestId($paymentRequestId);
+        if (!$record) {
+            return $this->paymentErrorResponse(404, '4042512', 'Bill not found');
+        }
+        if (($record['status'] ?? null) === 'paid') {
+            return $this->paymentErrorResponse(404, '4042514', 'Bill has been paid');
+        }
+        if ($inquiries->isExpired($record)) {
+            return $this->paymentErrorResponse(404, '4042519', 'Bill expired');
+        }
+
+        $expectedAmount = [
+            'value' => $record['total_amount_value'] ?? null,
+            'currency' => $record['total_amount_currency'] ?? null,
+        ];
+        if (!PaymentRequest::amountMatches($body, $expectedAmount)) {
+            return $this->paymentErrorResponse(404, '4042513', 'Invalid Amount');
         }
 
         try {
@@ -408,7 +434,7 @@ class BrivaController
         return $status;
     }
 
-    public function validateDefaultHeaders(Request $request): ?JsonResponse
+    public function validateDefaultHeaders(Request $request, string $serviceCode, ExternalIdRepository $externalIds): ?JsonResponse
     {
         $timestamp = $this->getHeader($request, 'X-TIMESTAMP');
         $contentType = $this->getHeader($request, 'Content-Type');
@@ -434,7 +460,13 @@ class BrivaController
         if ($xPartnerID !== $partnerId) {
             return $this->errorResponse(401, '4012400', 'Unauthorized Partner ID Not Match');
         }
-     
+
+        $windowMinutes = (int) config('briva.external_id.window_minutes', 1440);
+        if ($externalIds->isDuplicate($xPartnerID, $xExternalID, $windowMinutes)) {
+            return $this->errorResponse(409, "409{$serviceCode}00", 'Conflict');
+        }
+        $externalIds->record($xPartnerID, $xExternalID);
+
         return null;
     }
 }
