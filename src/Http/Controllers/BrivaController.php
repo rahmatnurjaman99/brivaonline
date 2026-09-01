@@ -183,10 +183,11 @@ class BrivaController
         }
 
         $virtualAccountData = $payload['virtualAccountData'] ?? [];
-        $billShortName = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billShortName'] ?? '') : '';
-        $billCode = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billCode'] ?? '') : '';
-        $billInfo1 = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billInfo1'] ?? '') : '';
-        $billInfo4 = is_array($virtualAccountData) ? (string) ($virtualAccountData['additionalInfo']['billInfo4'] ?? '') : '';
+        $additionalInfo = $payload['additionalInfo'] ?? [];
+        $billShortName = is_array($additionalInfo) ? (string) ($additionalInfo['info1'] ?? '') : '';
+        $billCode = is_array($additionalInfo) ? (string) ($additionalInfo['info2'] ?? '') : '';
+        $billInfo1 = is_array($additionalInfo) ? (string) ($additionalInfo['info3'] ?? '') : '';
+        $billInfo4 = is_array($additionalInfo) ? (string) ($additionalInfo['info4'] ?? '') : '';
         $slug = Formatter::slugCompact($billShortName)
             . Formatter::slugCompact($billCode)
             . Formatter::slugCompact($billInfo1)
@@ -196,7 +197,7 @@ class BrivaController
         $totalAmountValue = is_array($totalAmount) ? ($totalAmount['value'] ?? null) : null;
         $totalAmountCurrency = is_array($totalAmount) ? ($totalAmount['currency'] ?? null) : null;
 
-        if ($slug !== '' && $inquiryRequestId !== '' && is_array($virtualAccountData)) {
+        if (($payload['responseCode'] ?? '') === '2002400' && $inquiryRequestId !== '' && is_array($virtualAccountData)) {
             $expiryMinutes = (int) config('briva.virtual_account.expiry_minutes', 1440);
             $inquiries->upsertVirtualAccount([
                 'inquiry_request_id' => $inquiryRequestId,
