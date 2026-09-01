@@ -257,6 +257,13 @@ class BrivaController
         if (!$record) {
             return $this->paymentErrorResponse(404, '4042512', 'Bill not found');
         }
+
+        $virtualAccountNo = (string) ($body['virtualAccountNo'] ?? '');
+        $customerNo = (string) ($body['customerNo'] ?? '');
+        if ($virtualAccountNo !== (string) ($record['virtual_account_no'] ?? '') || $customerNo !== (string) ($record['customer_no'] ?? '')) {
+            return $this->paymentErrorResponse(404, '4042512', 'Bill not found');
+        }
+
         if (($record['status'] ?? null) === 'paid') {
             return $this->paymentErrorResponse(404, '4042514', 'Bill has been paid');
         }

@@ -18,6 +18,8 @@ class TokenRepository
             'token' => $token,
             'client_id' => $clientId,
             'expires_at' => $expiresAt,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return ['token' => $token, 'expires_at' => $expiresAt];
