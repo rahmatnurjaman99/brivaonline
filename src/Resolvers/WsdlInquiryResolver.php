@@ -40,6 +40,22 @@ class WsdlInquiryResolver implements InquiryResolver
                 $errorCode = $status['errorCode'] ?? null;
                 if ($isError || ($errorCode && $errorCode !== '00')) {
                     $description = $status['statusDescription'] ?? 'Invalid customerNo';
+                    $normalizedDescription = strtolower($description);
+
+                    if (str_contains($normalizedDescription, 'sudah dibayar')) {
+                        return [
+                            'responseCode' => '4042414',
+                            'responseMessage' => 'Bill has been paid',
+                        ];
+                    }
+
+                    if (str_contains($normalizedDescription, 'tidak ditemukan')) {
+                        return [
+                            'responseCode' => '4042412',
+                            'responseMessage' => 'Bill not found',
+                        ];
+                    }
+
                     return [
                         'responseCode' => '4042412',
                         'responseMessage' => $description,
