@@ -9,8 +9,10 @@ use RahmatNurjaman99\BrivaOnline\Clients\SnapClient;
 use RahmatNurjaman99\BrivaOnline\Clients\WsdlClient;
 use RahmatNurjaman99\BrivaOnline\Contracts\InquiryResolver;
 use RahmatNurjaman99\BrivaOnline\Contracts\PaymentResolver;
+use RahmatNurjaman99\BrivaOnline\Repositories\ExternalIdRepository;
 use RahmatNurjaman99\BrivaOnline\Repositories\InquiryRepository;
 use RahmatNurjaman99\BrivaOnline\Repositories\TokenRepository;
+use RahmatNurjaman99\BrivaOnline\Repositories\WsdlLogRepository;
 use RahmatNurjaman99\BrivaOnline\Resolvers\WsdlInquiryResolver;
 use RahmatNurjaman99\BrivaOnline\Resolvers\WsdlPaymentResolver;
 
@@ -22,6 +24,8 @@ class BrivaServiceProvider extends ServiceProvider
 
         $this->app->singleton(TokenRepository::class);
         $this->app->singleton(InquiryRepository::class);
+        $this->app->singleton(ExternalIdRepository::class);
+        $this->app->singleton(WsdlLogRepository::class);
         $this->app->singleton(SnapClient::class);
         $this->app->singleton(WsdlClient::class);
         $resolverClass = (string) config('briva.inquiry_resolver', WsdlInquiryResolver::class);

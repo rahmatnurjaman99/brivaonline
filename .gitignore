@@ -4,3 +4,7 @@
 /.phpunit.cache
 /.phpunit.result.cache
 composer.lock
+\[SIT\]*
+bridoc.xlsx
+prompt.md
+plan.md
