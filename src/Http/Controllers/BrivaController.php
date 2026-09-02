@@ -139,7 +139,7 @@ class BrivaController
             return $defaultHeadersValid;
         }
 
-        $tokenData = $this->requireToken($request, $tokens);
+        $tokenData = $this->requireToken($request, $tokens, '24');
         if ($tokenData instanceof JsonResponse) {
             return $tokenData;
         }
@@ -147,11 +147,14 @@ class BrivaController
         $body = $request->json()->all();
         $validation = InquiryRequest::validate($body);
         if (!$validation['ok']) {
-            return $this->inquiryErrorResponse(400, '4002402', $validation['message']);
+            $code = str_starts_with($validation['message'], 'Invalid Field Format')
+                ? '4002401'
+                : '4002402';
+            return $this->inquiryErrorResponse(400, $code, $validation['message']);
         }
 
         if (!$this->virtualAccountNoMatches($body)) {
-            return $this->inquiryErrorResponse(404, '4042512', 'Invalid Bill/Virtual Account Not Match');
+            return $this->inquiryErrorResponse(404, '4042412', 'Invalid Bill/Virtual Account Not Match');
         }
 
         // $partnerError = $this->validatePartnerId($request, '4042416');
@@ -159,7 +162,7 @@ class BrivaController
         //     return $partnerError;
         // }
 
-        $headersValid = $this->validateTransactionSignature($request, $body, $tokenData['token'], $tokenData['client_id']);
+        $headersValid = $this->validateTransactionSignature($request, $body, $tokenData['token'], $tokenData['client_id'], '24');
         if ($headersValid instanceof JsonResponse) {
             return $headersValid;
         }
@@ -231,7 +234,7 @@ class BrivaController
             return $defaultHeadersValid;
         }
 
-        $tokenData = $this->requireToken($request, $tokens);
+        $tokenData = $this->requireToken($request, $tokens, '25');
         if ($tokenData instanceof JsonResponse) {
             return $tokenData;
         }
@@ -254,7 +257,7 @@ class BrivaController
         //     return $partnerError;
         // }
 
-        $headersValid = $this->validateTransactionSignature($request, $body, $tokenData['token'], $tokenData['client_id']);
+        $headersValid = $this->validateTransactionSignature($request, $body, $tokenData['token'], $tokenData['client_id'], '25');
         if ($headersValid instanceof JsonResponse) {
             return $headersValid;
         }
@@ -310,16 +313,16 @@ class BrivaController
         return $value !== null ? (string) $value : null;
     }
 
-    private function requireToken(Request $request, TokenRepository $tokens)
+    private function requireToken(Request $request, TokenRepository $tokens, string $serviceCode)
     {
         $auth = $request->header('Authorization');
         if (!$auth || stripos($auth, 'Bearer ') !== 0) {
-            return $this->errorResponse(401, '4017301', 'Invalid Token (B2B)');
+            return $this->errorResponse(401, "401{$serviceCode}01", 'Access Token Invalid');
         }
         $token = trim(substr($auth, 7));
         $data = $tokens->validate($token);
         if (!$data) {
-            return $this->errorResponse(401, '4017301', 'Invalid Token (B2B)');
+            return $this->errorResponse(401, "401{$serviceCode}01", 'Access Token Invalid');
         }
         return $data + ['token' => $token];
     }
@@ -355,22 +358,22 @@ class BrivaController
         return null;
     }
 
-    private function validateTransactionSignature(Request $request, array $body, string $accessToken, string $clientId): ?JsonResponse
+    private function validateTransactionSignature(Request $request, array $body, string $accessToken, string $clientId, string $serviceCode): ?JsonResponse
     {
         $timestamp = $this->getHeader($request, 'X-TIMESTAMP');
         $signature = $this->getHeader($request, 'X-SIGNATURE');
         if (!$timestamp || !$signature) {
-            return $this->errorResponse(400, '4007300', 'Bad Request');
+            return $this->errorResponse(400, "400{$serviceCode}00", 'Bad Request');
         }
         $parsed = Timestamp::parseBri($timestamp);
         if (!$parsed || !Timestamp::withinSkew($parsed, 3600)) {
-            return $this->errorResponse(401, '4017300', 'Unauthorized stringToSign');
+            return $this->errorResponse(401, "401{$serviceCode}00", 'Unauthorized stringToSign');
         }
 
         $clientSecrets = $this->loadClientSecrets();
         $clientSecret = $clientSecrets[$clientId] ?? null;
         if (!$clientSecret) {
-            return $this->errorResponse(401, '4017300', 'Unauthorized Client');
+            return $this->errorResponse(401, "401{$serviceCode}00", 'Unauthorized Client');
         }
 
         $expected = Signature::signTransaction(
@@ -383,7 +386,7 @@ class BrivaController
         );
 
         if (!hash_equals($expected, $signature)) {
-            return $this->errorResponse(401, '4017300', 'Unauthorized Signature');
+            return $this->errorResponse(401, "401{$serviceCode}00", 'Unauthorized Signature');
         }
 
         return null;
