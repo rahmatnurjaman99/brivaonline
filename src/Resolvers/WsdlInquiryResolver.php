@@ -45,14 +45,14 @@ class WsdlInquiryResolver implements InquiryResolver
                     if (str_contains($normalizedDescription, 'sudah dibayar')) {
                         return [
                             'responseCode' => '4042414',
-                            'responseMessage' => 'Bill has been paid',
+                            'responseMessage' => 'Paid Bill',
                         ];
                     }
 
                     if (str_contains($normalizedDescription, 'tidak ditemukan')) {
                         return [
                             'responseCode' => '4042412',
-                            'responseMessage' => 'Bill not found',
+                            'responseMessage' => 'Invalid Bill/Virtual Account [' . $description . ']',
                         ];
                     }
 
