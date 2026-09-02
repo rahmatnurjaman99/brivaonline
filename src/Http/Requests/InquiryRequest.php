@@ -49,6 +49,9 @@ class InquiryRequest
         if (!FieldValidator::isNumericWithSpaces($virtualAccountNo) || !FieldValidator::maxLength($virtualAccountNo, 28)) {
             return ['ok' => false, 'message' => 'Invalid Field Format virtualAccountNo'];
         }
+        if ($virtualAccountNo !== $partnerServiceId . $customerNo) {
+            return ['ok' => false, 'message' => 'Invalid Field Format virtualAccountNo'];
+        }
 
         $inquiryRequestId = (string) $body['inquiryRequestId'];
         if (!FieldValidator::isAlphanumericId($inquiryRequestId) || !FieldValidator::maxLength($inquiryRequestId, 128)) {
