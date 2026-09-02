@@ -34,6 +34,22 @@ class WsdlPaymentResolver implements PaymentResolver
                 $errorCode = $status['errorCode'] ?? null;
                 if ($isError || ($errorCode && $errorCode !== '00')) {
                     $description = $status['statusDescription'] ?? 'Payment failed';
+                    $normalizedDescription = strtolower($description);
+
+                    if (str_contains($normalizedDescription, 'sudah dibayar')) {
+                        return [
+                            'responseCode' => '4042514',
+                            'responseMessage' => 'Paid Bill',
+                        ];
+                    }
+
+                    if (str_contains($normalizedDescription, 'tidak ditemukan')) {
+                        return [
+                            'responseCode' => '4042512',
+                            'responseMessage' => 'Invalid Bill/Virtual Account [' . $description . ']',
+                        ];
+                    }
+
                     return [
                         'responseCode' => '4002501',
                         'responseMessage' => $description,

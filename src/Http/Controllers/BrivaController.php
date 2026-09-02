@@ -300,8 +300,12 @@ class BrivaController
             return $this->paymentErrorResponse(502, '5022500', 'Payment service unavailable');
         }
 
-        if (($payload['responseCode'] ?? '') === '2002500' && $paymentRequestId !== '') {
+        $payloadResponseCode = (string) ($payload['responseCode'] ?? '');
+        if ($payloadResponseCode === '2002500' && $paymentRequestId !== '') {
             $inquiries->markPaidByPaymentRequestId($paymentRequestId);
+        } elseif ($payloadResponseCode === '4042514' && $paymentRequestId !== '') {
+            // WSDL says the bill was already settled via another channel — our own payment attempt failed, not succeeded.
+            $inquiries->markFailedByPaymentRequestId($paymentRequestId);
         }
 
         return $this->payloadResponse($payload);

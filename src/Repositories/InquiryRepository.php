@@ -66,4 +66,11 @@ class InquiryRepository
             ->where('payment_request_id', $paymentRequestId)
             ->update(['status' => 'paid', 'updated_at' => now()]);
     }
+
+    public function markFailedByPaymentRequestId(string $paymentRequestId): void
+    {
+        DB::table('inquiry_records')
+            ->where('payment_request_id', $paymentRequestId)
+            ->update(['status' => 'failed', 'updated_at' => now()]);
+    }
 }
