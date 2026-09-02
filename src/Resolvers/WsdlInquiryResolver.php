@@ -70,7 +70,7 @@ class WsdlInquiryResolver implements InquiryResolver
                     'inquiryStatus' => '00',
                     'inquiryReason' => ['english' => 'Success', 'indonesia' => 'Sukses'],
                 ],
-                'additionalInfo' => $body['additionalInfo'] ? array_merge($body['additionalInfo'], [
+                'additionalInfo' => is_array($body['additionalInfo'] ?? null) ? array_merge($body['additionalInfo'], [
                     'info1' => $billShortName,
                     'info2' => $billCode,
                     'info3' => $billInfo1,
