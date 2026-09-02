@@ -150,6 +150,10 @@ class BrivaController
             return $this->inquiryErrorResponse(400, '4002402', $validation['message']);
         }
 
+        if (!$this->virtualAccountNoMatches($body)) {
+            return $this->inquiryErrorResponse(404, '4042512', 'Invalid Bill/Virtual Account Not Match');
+        }
+
         // $partnerError = $this->validatePartnerId($request, '4042416');
         // if ($partnerError) {
         //     return $partnerError;
@@ -241,6 +245,10 @@ class BrivaController
             return $this->paymentErrorResponse(400, $code, $validation['message']);
         }
 
+        if (!$this->virtualAccountNoMatches($body)) {
+            return $this->paymentErrorResponse(404, '4042512', 'Invalid Bill/Virtual Account Not Match');
+        }
+
         // $partnerError = $this->validatePartnerId($request, '4042516');
         // if ($partnerError) {
         //     return $partnerError;
@@ -314,6 +322,15 @@ class BrivaController
             return $this->errorResponse(401, '4017301', 'Invalid Token (B2B)');
         }
         return $data + ['token' => $token];
+    }
+
+    private function virtualAccountNoMatches(array $body): bool
+    {
+        $partnerServiceId = Formatter::formatPartnerServiceId((string) ($body['partnerServiceId'] ?? ''));
+        $customerNo = (string) ($body['customerNo'] ?? '');
+        $virtualAccountNo = (string) ($body['virtualAccountNo'] ?? '');
+
+        return $virtualAccountNo === $partnerServiceId . $customerNo;
     }
 
     private function validatePartnerId(Request $request, string $notFoundCode): ?JsonResponse
