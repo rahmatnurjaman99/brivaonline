@@ -39,14 +39,14 @@ class WsdlPaymentResolver implements PaymentResolver
                     if (str_contains($normalizedDescription, 'sudah dibayar')) {
                         return [
                             'responseCode' => '4042514',
-                            'responseMessage' => 'Paid Bill',
+                            'responseMessage' => 'Bill has been paid',
                         ];
                     }
 
                     if (str_contains($normalizedDescription, 'tidak ditemukan')) {
                         return [
                             'responseCode' => '4042512',
-                            'responseMessage' => 'Invalid Bill/Virtual Account [' . $description . ']',
+                            'responseMessage' => 'Bill not found',
                         ];
                     }
 
