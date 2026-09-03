@@ -170,6 +170,11 @@ class BrivaController
         $inquiryRequestId = (string) ($body['inquiryRequestId'] ?? '');
         $existing = $inquiries->findByInquiryRequestId($inquiryRequestId);
         if ($existing) {
+            $customerNo = (string) ($body['customerNo'] ?? '');
+            $virtualAccountNo = (string) ($body['virtualAccountNo'] ?? '');
+            if ($customerNo !== (string) ($existing['customer_no'] ?? '') || $virtualAccountNo !== (string) ($existing['virtual_account_no'] ?? '')) {
+                return $this->inquiryErrorResponse(404, '4042412', 'Bill not found');
+            }
             if (($existing['status'] ?? null) === 'paid') {
                 return $this->inquiryErrorResponse(404, '4042414', 'Bill has been paid');
             }
